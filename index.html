@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="fi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Hoppers</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2bb3ff">
+<style>
+:root{
+  --water:#17a1ff;
+  --leaf:#39b36b;
+  --leaf-dark:#2a8d53;
+  --frog:#a7e04a;
+  --red:#e74c3c;
+  --ink:#0f172a;
+  --accent:#2bb3ff;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{
+  height:100%;margin:0;
+  background:linear-gradient(135deg,#0f172a 0%,#1a2a4a 50%,#0f172a 100%);
+  color:var(--ink);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Arial,sans-serif;
+}
+body{
+  display:grid;place-items:center;gap:20px;
+  padding:max(env(safe-area-inset-top),20px)
+          max(env(safe-area-inset-right),20px)
+          max(env(safe-area-inset-bottom),20px)
+          max(env(safe-area-inset-left),20px);
+  min-height:100svh;
+}
+@supports(height:100dvh){body{min-height:100dvh}}
+h1{
+  font-size:clamp(28px,6vw,42px);
+  margin:0;text-align:center;font-weight:800;
+  letter-spacing:3px;
+  background:linear-gradient(135deg,#2bb3ff,#39b36b);
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 2px 20px rgba(43,179,255,.3);
+}
+.wrap{display:grid;gap:24px;place-items:center;width:100%;}
+.lake{
+  --boardPX:520px;
+  position:relative;width:var(--boardPX);height:var(--boardPX);
+  max-width:96vw;max-height:96vh;
+  background:linear-gradient(135deg,var(--water),#0a8fd4);
+  border-radius:32px;
+  box-shadow:
+    0 25px 50px -12px rgba(0,0,0,.4),
+    0 0 0 1px rgba(43,179,255,.2),
+    inset 0 2px 10px rgba(255,255,255,.1),
+    inset 0 8px 28px rgba(0,0,0,.18);
+  overflow:hidden;
+}
+canvas{position:absolute;inset:0;width:100%;height:100%;}
+.leaf{
+  position:absolute;width:12.5%;aspect-ratio:1/1;
+  transform:translate(-50%,-50%);
+  display:grid;place-items:center;border-radius:50%;
+  background:linear-gradient(135deg,var(--leaf),#2a8d53);
+  box-shadow:
+    0 8px 16px rgba(0,0,0,.3),
+    0 3px 0 var(--leaf-dark) inset,
+    0 -2px 6px rgba(255,255,255,.2) inset;
+  transition:transform .2s cubic-bezier(.34,.1,.68,1);
+}
+.leaf:hover{transform:translate(-50%,-50%) scale(1.08);}
+.frog{
+  width:68%;aspect-ratio:1/1;border-radius:50%;
+  display:grid;place-items:center;color:white;user-select:none;
+  box-shadow:0 6px 20px rgba(0,0,0,.3),0 0 0 2px rgba(255,255,255,.2) inset;
+  transition:transform .16s ease;z-index:1;
+  font-weight:700;font-size:24px;
+}
+.frog.green{background:linear-gradient(135deg,var(--frog),#8ec83f);}
+.frog.red{background:linear-gradient(135deg,var(--red),#c0392b);}
+.frog.selected{
+  outline:4px solid #f1f5f9;
+  box-shadow:
+    0 0 0 2px rgba(11,94,154,.8),
+    0 0 20px rgba(43,179,255,.6),
+    0 6px 20px rgba(0,0,0,.3),
+    0 0 0 2px rgba(255,255,255,.2) inset;
+  transform:scale(1.12);
+}
+.hud{
+  display:flex;gap:16px;flex-wrap:wrap;
+  align-items:center;justify-content:center;font-size:15px;width:100%;
+}
+select,button{
+  padding:12px 18px;border-radius:16px;border:none;font-weight:600;
+  box-shadow:0 8px 16px rgba(0,0,0,.2),0 0 0 1px rgba(255,255,255,.1);
+  font-family:inherit;
+  transition:all .2s cubic-bezier(.34,.1,.68,1);
+}
+select{
+  background:linear-gradient(135deg,#fff,#f5f5f5);
+  color:#0f172a;
+  cursor:pointer;
+}
+select:hover{box-shadow:0 12px 24px rgba(0,0,0,.3),0 0 0 1px rgba(255,255,255,.1);}
+button{
+  cursor:pointer;
+  background:linear-gradient(135deg,#0d6efd,#0053cc);
+  color:white;
+}
+button:hover{
+  box-shadow:0 12px 24px rgba(13,110,253,.4),0 0 0 1px rgba(255,255,255,.1);
+  transform:translateY(-2px);
+}
+button:active{transform:translateY(0);}
+button.secondary{
+  background:linear-gradient(135deg,#1f2937,#111);
+  color:#fff;
+}
+button.secondary:hover{
+  box-shadow:0 12px 24px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.1);
+}
+.pill{
+  padding:.6em 1.2em;border-radius:999px;
+  background:linear-gradient(135deg,#fff,#f9f9f9);
+  box-shadow:0 4px 12px rgba(0,0,0,.15),0 0 0 1px rgba(0,0,0,.08);
+  font-weight:600;
+  color:#0f172a;
+}
+.toast{
+  position:fixed;left:50%;bottom:max(20px,calc(env(safe-area-inset-bottom)+10px));
+  transform:translateX(-50%);
+  background:linear-gradient(135deg,#1f2937,#111);
+  color:#fff;
+  padding:.8em 1.4em;border-radius:16px;
+  opacity:0;pointer-events:none;
+  transition:opacity .3s ease,transform .3s cubic-bezier(.34,.1,.68,1);
+  font-family:inherit;
+  font-weight:600;
+  box-shadow:0 12px 28px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.1);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(-12px);}
+.small{font-size:13px;opacity:.7;color:#9ca3af;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>HOPPERS</h1>
+  <div id="lake" class="lake"><canvas id="grid"></canvas></div>
+  <div class="hud" id="hud">
+    <span class="pill">Siirrot: <b id="moves">0</b></span>
+    <select id="level">
+      <option value="beginner" selected>Helppo</option>
+      <option value="intermediate">Normaali</option>
+      <option value="advanced">Vaikea</option>
+    </select>
+    <button id="newGame" type="button">Uusi peli</button>
+    <button id="reset" type="button">Nollaa</button>
+    <button id="install" class="secondary" type="button" hidden>Asenna</button>
+  </div>
+  <div class="small">©JR. Alkuperäinen idea Nob Yoshigahara.</div>
+</div>
+<div id="toast" class="toast">Voitit!</div>
+
+<script>
+/* ========= PERUSLAUTA ========= */
+const NODES=[
+ {id:0,x:0,y:0},{id:1,x:1,y:0},{id:2,x:2,y:0},
+ {id:3,x:0.5,y:1},{id:4,x:1.5,y:1},
+ {id:5,x:0,y:2},{id:6,x:1,y:2},{id:7,x:2,y:2},
+ {id:8,x:0.5,y:3},{id:9,x:1.5,y:3},
+ {id:10,x:0,y:4},{id:11,x:1,y:4},{id:12,x:2,y:4}
+];
+const idByXY=new Map(NODES.map(n=>[`${n.x},${n.y}`,n.id]));
+function midpointId(a,b){const A=NODES[a],B=NODES[b];return idByXY.get(`${(A.x+B.x)/2},${(A.y+B.y)/2}`);}
+const EDGES=new Set();
+function addEdge(a,b){if(a==null||b==null)return;EDGES.add(a<b?`${a}-${b}`:`${b}-${a}`);}
+function hasEdge(a,b){return EDGES.has(a<b?`${a}-${b}`:`${b}-${a}`);}
+[[0,1,2],[5,6,7],[10,11,12]].forEach(l=>{for(let i=0;i<l.length-1;i++)addEdge(l[i],l[i+1]);});
+[[0,5],[5,10],[1,6],[6,11],[2,7],[7,12]].forEach(([a,b])=>addEdge(a,b));
+[[3,0],[3,1],[3,5],[3,6],[4,1],[4,2],[4,6],[4,7],
+ [8,5],[8,6],[8,10],[8,11],[9,6],[9,7],[9,11],[9,12]
+].forEach(([a,b])=>addEdge(a,b));
+const JUMPS=[];
+for(let a=0;a<13;a++)for(let b=0;b<13;b++){
+  const mid=midpointId(a,b);
+  if(mid!=null&&hasEdge(a,mid)&&hasEdge(mid,b))JUMPS.push({from:a,mid,to:b});
+}
+
+/* ========= PIIRTO ========= */
+const lake=document.getElementById('lake'),grid=document.getElementById('grid'),
+hud=document.getElementById('hud'),movesEl=document.getElementById('moves'),
+toast=document.getElementById('toast');
+const PADDING=8,S=(100-2*PADDING)/4,STEP_X=2*S,STEP_Y=S;
+const px=x=>PADDING+x*STEP_X,py=y=>PADDING+y*STEP_Y;
+const leafEls=[];
+function buildLeaves(){
+  lake.querySelectorAll('.leaf').forEach(e=>e.remove());
+  NODES.forEach(n=>{
+    const el=document.createElement('div');
+    el.className='leaf';
+    el.style.left=px(n.x)+'%';
+    el.style.top =py(n.y)+'%';
+    el.dataset.id=n.id;
+    lake.appendChild(el);
+    leafEls[n.id]=el;
+  });
+}
+function drawGrid(){
+  const dpr=window.devicePixelRatio||1,rect=lake.getBoundingClientRect();
+  grid.width=rect.width*dpr;grid.height=rect.height*dpr;
+  const ctx=grid.getContext('2d');ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,rect.width,rect.height);
+  ctx.lineWidth=Math.max(2,rect.width*0.0045);
+  ctx.strokeStyle='#0b5e9a';ctx.lineCap='round';
+  function p(n){return[rect.width*px(n.x)/100,rect.height*py(n.y)/100];}
+  EDGES.forEach(k=>{const[a,b]=k.split('-').map(Number);
+    const A=NODES[a],B=NODES[b];const[x1,y1]=p(A),[x2,y2]=p(B);
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();});
+}
+function fitBoard(){
+  const h1=document.querySelector('h1').offsetHeight||0,hudH=hud.offsetHeight||0;
+  const cs=getComputedStyle(document.body);
+  const padTop=parseFloat(cs.paddingTop)||0,padBot=parseFloat(cs.paddingBottom)||0;
+  const vh=(window.visualViewport?.height)||window.innerHeight;const gap=16;
+  const availH=Math.max(260,vh-padTop-padBot-h1-hudH-gap*2);
+  const availW=Math.max(260,Math.min(window.innerWidth*0.96,window.innerWidth-24));
+  const size=Math.min(availH,availW);
+  lake.style.setProperty('--boardPX',`${Math.floor(size)}px`);
+  drawGrid();
+}
+
+/* ========= PELILOGIIKKA ========= */
+let selected=null,moves=0,occupied=new Set(),redId=3,lastPuzzle=null;
+function setState({frogs,red}){occupied=new Set(frogs);redId=red;moves=0;movesEl.textContent='0';renderFrogs();lastPuzzle={frogs:[...frogs],red};}
+function renderFrogs(){lake.querySelectorAll('.frog').forEach(e=>e.remove());
+  occupied.forEach(id=>{const el=document.createElement('div');el.className='frog '+(id===redId?'red':'green');leafEls[id].appendChild(el);});
+  selected=null;}
+function flash(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1200);}
+function checkWin(){if(occupied.size===1&&occupied.has(redId))flash('Voitit!');}
+function getNodeIdFromEvent(t){const l=t.closest('.leaf');return l?Number(l.dataset.id):null;}
+function tryJump(from,to){const mid=midpointId(from,to);
+  if(mid==null||!occupied.has(from)||!occupied.has(mid)||occupied.has(to)||mid===redId)return false;
+  if(!(hasEdge(from,mid)&&hasEdge(mid,to)))return false;
+  occupied.delete(mid);occupied.delete(from);occupied.add(to);
+  if(from===redId)redId=to;moves++;movesEl.textContent=String(moves);renderFrogs();checkWin();return true;}
+lake.addEventListener('pointerdown',ev=>{
+  const id=getNodeIdFromEvent(ev.target);if(id==null)return;
+  if(selected==null){if(occupied.has(id)){selected=id;leafEls[id].querySelector('.frog').classList.add('selected');}return;}
+  if(id===selected){leafEls[selected].querySelector('.frog').classList.remove('selected');selected=null;return;}
+  if(tryJump(selected,id)){}else{
+    if(occupied.has(id)){leafEls[selected].querySelector('.frog').classList.remove('selected');
+      selected=id;leafEls[selected].querySelector('.frog').classList.add('selected');}
+    else{flash('Ei sallittu hyppy');leafEls[selected].querySelector('.frog').classList.remove('selected');selected=null;}}});
+
+/* ========= RATKAISIJA ========= */
+const moveCache=new Map();
+function maskFromArray(a){let m=0;for(const i of a)m|=(1<<i);return m;}
+function bitsToArray(m){const arr=[];for(let i=0;i<13;i++)if(m&(1<<i))arr.push(i);return arr;}
+function bfsMinMoves(frogs,red){
+  const start=maskFromArray(frogs),goal=(1<<red),key=start+"|"+red;
+  if(moveCache.has(key))return moveCache.get(key);
+  const q=[{m:start,r:red,d:0}],seen=new Set([key]);
+  while(q.length){
+    const s=q.shift();if(s.m===goal){moveCache.set(key,s.d);return s.d;}
+    for(const {from,mid,to} of JUMPS){
+      if(!(s.m&(1<<from))||!(s.m&(1<<mid))||(s.m&(1<<to))||mid===s.r)continue;
+      let nm=s.m;nm&=~(1<<from);nm&=~(1<<mid);nm|=(1<<to);
+      const nr=(s.r===from)?to:s.r,k=nm+"|"+nr;
+      if(!seen.has(k)){seen.add(k);q.push({m:nm,r:nr,d:s.d+1});}
+    }
+  }
+  moveCache.set(key,null);return null;
+}
+
+/* ========= VAIKEUSTASOT ========= */
+const LEVELS = {
+  beginner: [4,6],
+  intermediate: [7,8],
+  advanced: [9,11]
+};
+
+/* ========= KASVU JA GENERAATTORI ========= */
+function growBackwardOnce(mask,red){
+  const cand=[];
+  for(const {from,mid,to} of JUMPS){
+    if(!((mask>>to)&1))continue;
+    if((mask>>from)&1)continue;
+    if((mask>>mid)&1)continue;
+    if(mid===red)continue;
+    let nm=mask|((1<<from)|(1<<mid));
+    nm&=~(1<<to);
+    const nr=(red===to)?from:red;
+    cand.push({mask:nm,red:nr});
+  }
+  return cand.length?cand[Math.random()*cand.length|0]:null;
+}
+function generateForLevel(level,onDone){
+  const [LO,HI]=LEVELS[level]||LEVELS.beginner;
+  const stepsPerBatch=800,frogsMin=5,frogsMax=12;
+  let red=0,mask=0,grown=0;
+  let target=LO+Math.floor(Math.random()*(HI-LO+1));
+  let attempts=0;
+  function restart(){
+    red=NODES[Math.random()*NODES.length|0].id;
+    mask=(1<<red);grown=0;
+    const warm=1+(Math.random()*2|0);
+    for(let i=0;i<warm;i++){const s=growBackwardOnce(mask,red);
+      if(!s)break;mask=s.mask;red=s.red;grown++;}
+  }
+  restart();
+  function batchGrow(){
+    for(let i=0;i<stepsPerBatch && grown<target;i++){
+      const s=growBackwardOnce(mask,red);
+      if(!s){restart();break;}
+      mask=s.mask;red=s.red;grown++;
+    }
+    if(grown>=target){
+      const frogs=bitsToArray(mask);
+      if(frogs.length<frogsMin||frogs.length>frogsMax){
+        restart();target=LO+Math.floor(Math.random()*(HI-LO+1));
+        return setTimeout(batchGrow,0);
+      }
+      const mv=bfsMinMoves(frogs,red);
+      if(mv!=null && mv>=LO && mv<=HI){onDone({frogs,red,moves:mv});return;}
+      if(mv!=null && mv<LO){target+=Math.max(1,(LO-mv));}
+      else{restart();target=LO+Math.floor(Math.random()*(HI-LO+1));}
+    }
+    attempts++;
+    if(attempts%20===0 && target<11)target++;
+    setTimeout(batchGrow,0);
+  }
+  batchGrow();
+}
+
+/* ========= NAPIT ========= */
+const levelSel=document.getElementById('level');
+const newBtn=document.getElementById('newGame');
+newBtn.addEventListener('click',()=>{
+  const lvl=levelSel.value;
+  newBtn.disabled=true;const old=newBtn.textContent;newBtn.textContent='Luodaan…';
+  generateForLevel(lvl,res=>{
+    setState(res);
+    const label=levelSel.options[levelSel.selectedIndex].textContent;
+    flash(`${label} • ${res.moves} siirtoa`);
+    newBtn.disabled=false;newBtn.textContent=old;
+  });
+});
+document.getElementById('reset').addEventListener('click',()=>{if(lastPuzzle)setState(lastPuzzle);});
+
+/* ========= INIT ========= */
+buildLeaves();fitBoard();drawGrid();
+generateForLevel('beginner',res=>setState(res));
+new ResizeObserver(()=>fitBoard()).observe(document.body);
+window.addEventListener('resize',fitBoard);
+
+/* ========= PWA ========= */
+let deferredPrompt=null;
+const installBtn=document.getElementById('install');
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;installBtn.hidden=false;
+});
+installBtn.addEventListener('click',async()=>{
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();await deferredPrompt.userChoice;
+  deferredPrompt=null;installBtn.hidden=true;
+});
+if('serviceWorker'in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./service-worker.js'));
+}
+</script>
+</body>
+</html>
