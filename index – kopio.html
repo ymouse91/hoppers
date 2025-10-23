@@ -2,13 +2,7 @@
 <html lang="fi">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, viewport-fit=cover">
-<meta name="application-name" content="Hoppers">
-<meta name="description" content="Hoppers – Nob Yoshigaharan klassinen sammakko­peli. Ratkaise pulma ja jätä jäljelle vain punainen sammakko!">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="msapplication-starturl" content="./">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Hoppers</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#2bb3ff">
@@ -162,12 +156,11 @@ button.secondary:hover{
     </select>
     <button id="newGame" type="button">Uusi peli</button>
     <button id="reset" type="button">Nollaa</button>
-    <button id="solve" class="secondary" type="button">Näytä ratkaisu</button>
     <button id="install" class="secondary" type="button" hidden>Asenna</button>
   </div>
   <div class="small">©JR. Alkuperäinen idea Nob Yoshigahara.</div>
 </div>
-<div id="toast" class="toast">Ratkaistu!</div>
+<div id="toast" class="toast">Voitit!</div>
 
 <script>
 /* ========= PERUSLAUTA ========= */
@@ -239,23 +232,12 @@ function fitBoard(){
 
 /* ========= PELILOGIIKKA ========= */
 let selected=null,moves=0,occupied=new Set(),redId=3,lastPuzzle=null;
-
-/* käyttöeston lippu ratkaisun toiston ajaksi */
-let inputLocked=false;
-function setInputLocked(v){
-  inputLocked=v;
-  document.getElementById('newGame').disabled=v;
-  document.getElementById('reset').disabled=v;
-  document.getElementById('level').disabled=v;
-  document.getElementById('solve').disabled=v;
-}
-
 function setState({frogs,red}){occupied=new Set(frogs);redId=red;moves=0;movesEl.textContent='0';renderFrogs();lastPuzzle={frogs:[...frogs],red};}
 function renderFrogs(){lake.querySelectorAll('.frog').forEach(e=>e.remove());
   occupied.forEach(id=>{const el=document.createElement('div');el.className='frog '+(id===redId?'red':'green');leafEls[id].appendChild(el);});
   selected=null;}
-function flash(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2000);}
-function checkWin(){if(occupied.size===1&&occupied.has(redId))flash('Ratkaistu!');}
+function flash(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1200);}
+function checkWin(){if(occupied.size===1&&occupied.has(redId))flash('Voitit!');}
 function getNodeIdFromEvent(t){const l=t.closest('.leaf');return l?Number(l.dataset.id):null;}
 function tryJump(from,to){const mid=midpointId(from,to);
   if(mid==null||!occupied.has(from)||!occupied.has(mid)||occupied.has(to)||mid===redId)return false;
@@ -263,7 +245,6 @@ function tryJump(from,to){const mid=midpointId(from,to);
   occupied.delete(mid);occupied.delete(from);occupied.add(to);
   if(from===redId)redId=to;moves++;movesEl.textContent=String(moves);renderFrogs();checkWin();return true;}
 lake.addEventListener('pointerdown',ev=>{
-  if(inputLocked) return;
   const id=getNodeIdFromEvent(ev.target);if(id==null)return;
   if(selected==null){if(occupied.has(id)){selected=id;leafEls[id].querySelector('.frog').classList.add('selected');}return;}
   if(id===selected){leafEls[selected].querySelector('.frog').classList.remove('selected');selected=null;return;}
@@ -272,7 +253,7 @@ lake.addEventListener('pointerdown',ev=>{
       selected=id;leafEls[selected].querySelector('.frog').classList.add('selected');}
     else{flash('Ei sallittu hyppy');leafEls[selected].querySelector('.frog').classList.remove('selected');selected=null;}}});
 
-/* ========= RATKAISIJA (minimipolku) ========= */
+/* ========= RATKAISIJA ========= */
 const moveCache=new Map();
 function maskFromArray(a){let m=0;for(const i of a)m|=(1<<i);return m;}
 function bitsToArray(m){const arr=[];for(let i=0;i<13;i++)if(m&(1<<i))arr.push(i);return arr;}
@@ -290,33 +271,6 @@ function bfsMinMoves(frogs,red){
     }
   }
   moveCache.set(key,null);return null;
-}
-
-/* Palauttaa yhden lyhyimmän polun listana siirtoja: {from,mid,to} */
-function solveCurrent(){
-  const startMask = maskFromArray([...occupied]);
-  const goal = (1<<redId);
-  const start = {m:startMask, r:redId, prev:null, move:null};
-  const seen = new Set([start.m+"|"+start.r]);
-  const queue = [start];
-  while(queue.length){
-    const s = queue.shift();
-    if(s.m === goal){
-      const path=[];
-      let cur=s;
-      while(cur.move){ path.push(cur.move); cur=cur.prev; }
-      path.reverse();
-      return path;
-    }
-    for(const {from,mid,to} of JUMPS){
-      if(!(s.m&(1<<from))||!(s.m&(1<<mid))||(s.m&(1<<to))||mid===s.r) continue;
-      let nm=s.m; nm &= ~(1<<from); nm &= ~(1<<mid); nm |= (1<<to);
-      const nr = (s.r===from)?to:s.r;
-      const k = nm+"|"+nr;
-      if(!seen.has(k)){ seen.add(k); queue.push({m:nm,r:nr,prev:s,move:{from,mid,to}}); }
-    }
-  }
-  return null;
 }
 
 /* ========= VAIKEUSTASOT ========= */
@@ -379,45 +333,10 @@ function generateForLevel(level,onDone){
   batchGrow();
 }
 
-/* ========= RATKAISUN TOISTO ========= */
-let playingTimer=null;
-function playSolution(path){
-  if(!path || !path.length){ flash('Ratkaisua ei löytynyt'); return; }
-  setInputLocked(true);
-  let i=0;
-  const step=()=>{
-    if(i>=path.length){ setInputLocked(false); flash('Ratkaisu valmis'); return; }
-const {from, to} = path[i];
-const fromLeaf = leafEls[from];
-const frogEl = fromLeaf?.querySelector('.frog');
-
-// Näytä hetkeksi olemassa oleva valintakehys
-if (frogEl) frogEl.classList.add('selected');
-
-// 0.2 s viive ennen hyppyä (näyttää ensin valinnan)
-setTimeout(() => {
-  tryJump(from, to);
-
-  // poista kehys siirron jälkeen
-  if (frogEl) frogEl.classList.remove('selected');
-
-  i++;
-  const delay = (i === 0) ? 22000 : 1000;
-  playingTimer = setTimeout(step, delay);
-}, 400);
-
-  };
-  step();
-}
-
 /* ========= NAPIT ========= */
 const levelSel=document.getElementById('level');
 const newBtn=document.getElementById('newGame');
-const resetBtn=document.getElementById('reset');
-const solveBtn=document.getElementById('solve');
-
 newBtn.addEventListener('click',()=>{
-  if(inputLocked) return;
   const lvl=levelSel.value;
   newBtn.disabled=true;const old=newBtn.textContent;newBtn.textContent='Luodaan…';
   generateForLevel(lvl,res=>{
@@ -427,18 +346,7 @@ newBtn.addEventListener('click',()=>{
     newBtn.disabled=false;newBtn.textContent=old;
   });
 });
-resetBtn.addEventListener('click',()=>{
-  if(playingTimer){ clearTimeout(playingTimer); playingTimer=null; }
-  setInputLocked(false);
-  if(lastPuzzle) setState(lastPuzzle);
-});
-solveBtn.addEventListener('click',()=>{
-  if(inputLocked) return;
-  const path = solveCurrent();
-  if(!path){ flash('Ratkaisua ei löytynyt'); return; }
-  flash(`Ratkaisu: ${path.length} siirtoa`);
-  playSolution(path);
-});
+document.getElementById('reset').addEventListener('click',()=>{if(lastPuzzle)setState(lastPuzzle);});
 
 /* ========= INIT ========= */
 buildLeaves();fitBoard();drawGrid();

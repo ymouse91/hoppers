@@ -1,7 +1,8 @@
 {
   "name": "Hoppers (Demo)",
   "short_name": "Hoppers",
-  "start_url": "./index.html",
+  "description": "Ratkaise klassinen Nob Yoshigaharan Hoppers-pulma ja jätä jäljelle vain punainen sammakko!",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#17a1ff",
   "theme_color": "#2bb3ff",
