@@ -1,5 +1,6 @@
 // service-worker.js
 const CACHE = 'hoppers-v3';
+scope: './';
 const FILES = [
   './',
   './index.html',
