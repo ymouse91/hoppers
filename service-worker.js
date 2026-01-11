@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE = 'hoppers-v05';
+const CACHE = 'hoppers-v06';
 const SCOPE = './';
 const FILES = [
   './',
@@ -8,6 +8,8 @@ const FILES = [
   './service-worker.js',
   './icon-192.png',
   './icon-512.png',
+  './red.png',
+  './green.png'
 ];
 
 self.addEventListener('install', e => {
