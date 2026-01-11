@@ -4,10 +4,11 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, viewport-fit=cover">
 <meta name="application-name" content="Hoppers">
-<meta name="description" content="Hoppers – Nob Yoshigaharan klassinen sammakko­peli. Ratkaise pulma ja jätä jäljelle vain punainen sammakko!">
+<meta name="description" content="Hoppers – Nob Yoshigaharan klassinen sammakkopeli. Ratkaise pulma ja jätä jäljelle vain punainen sammakko!">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta property="og:image" content="https://ymouse91.github.io/hoppers/icon-512.png">
 <meta name="msapplication-starturl" content="./">
 <title>Hoppers</title>
 <link rel="manifest" href="manifest.json">
@@ -74,25 +75,42 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
     0 -2px 6px rgba(255,255,255,.2) inset;
   transition:transform .2s cubic-bezier(.34,.1,.68,1);
 }
-.leaf:hover{transform:translate(-50%,-50%) scale(1.08);}
+.leaf:hover{transform:translate(-50%,-50%) scale(1.08); z-index:1;}
+
+/* === Valintakehys LEHDELLE (ring-elementti) === */
+.leaf .ring{
+  position:absolute;
+  inset:-3px;
+  border-radius:50%;
+  border:4px solid #6ee7a8;
+  box-shadow: 0 0 0 2px rgba(11,94,154,.95), 0 0 18px rgba(43,179,255,.7);
+  pointer-events:none;
+  z-index:1;
+}
+.leaf .frog{ position:relative; z-index:2; }
+
 .frog{
-  width:68%;aspect-ratio:1/1;border-radius:50%;
-  display:grid;place-items:center;color:white;user-select:none;
-  box-shadow:0 6px 20px rgba(0,0,0,.3),0 0 0 2px rgba(255,255,255,.2) inset;
-  transition:transform .16s ease;z-index:1;
-  font-weight:700;font-size:24px;
+  width:90%;
+  aspect-ratio:1/1;
+  background-size:contain;
+  background-repeat:no-repeat;
+  background-position:center;
+  user-select:none;
+  transition:transform .16s ease;
+  z-index:7;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.35));
 }
-.frog.green{background:linear-gradient(135deg,var(--frog),#8ec83f);}
-.frog.red{background:linear-gradient(135deg,var(--red),#c0392b);}
-.frog.selected{
-  outline:4px solid #f1f5f9;
-  box-shadow:
-    0 0 0 2px rgba(11,94,154,.8),
-    0 0 20px rgba(43,179,255,.6),
-    0 6px 20px rgba(0,0,0,.3),
-    0 0 0 2px rgba(255,255,255,.2) inset;
-  transform:scale(1.12);
+
+/* vihreä sammakko */
+.frog.green{
+  background-image:url('green.png');
 }
+
+/* punainen sammakko */
+.frog.red{
+  background-image:url('red.png');
+}
+
 .hud{
   display:flex;gap:16px;flex-wrap:wrap;
   align-items:center;justify-content:center;font-size:15px;width:100%;
@@ -237,6 +255,30 @@ function fitBoard(){
   drawGrid();
 }
 
+function setLeafSelected(id, on){
+  const leaf = leafEls[id];
+  if(!leaf) return;
+
+  if(on){
+    if(!leaf.querySelector('.ring')){
+      const ring = document.createElement('div');
+      ring.className = 'ring';
+      leaf.prepend(ring);
+    }
+  }else{
+    const ring = leaf.querySelector('.ring');
+    if(ring) ring.remove();
+  }
+}
+
+function clearAllLeafSelections(){
+  for(const leaf of leafEls){
+    if(!leaf) continue;
+    const ring = leaf.querySelector('.ring');
+    if(ring) ring.remove();
+  }
+}
+
 /* ========= PELILOGIIKKA ========= */
 let selected=null,moves=0,occupied=new Set(),redId=3,lastPuzzle=null;
 
@@ -250,27 +292,94 @@ function setInputLocked(v){
   document.getElementById('solve').disabled=v;
 }
 
-function setState({frogs,red}){occupied=new Set(frogs);redId=red;moves=0;movesEl.textContent='0';renderFrogs();lastPuzzle={frogs:[...frogs],red};}
-function renderFrogs(){lake.querySelectorAll('.frog').forEach(e=>e.remove());
-  occupied.forEach(id=>{const el=document.createElement('div');el.className='frog '+(id===redId?'red':'green');leafEls[id].appendChild(el);});
-  selected=null;}
+function setState({frogs,red}){
+  clearAllLeafSelections();
+  selected=null;
+  occupied=new Set(frogs);
+  redId=red;
+  moves=0;
+  movesEl.textContent='0';
+  renderFrogs();
+  lastPuzzle={frogs:[...frogs],red};
+}
+
+function renderFrogs(){
+  // aina tyhjennetään valinnat + vanhat ringit
+  clearAllLeafSelections();
+
+  lake.querySelectorAll('.frog').forEach(e=>e.remove());
+  occupied.forEach(id=>{
+    const el=document.createElement('div');
+    el.className='frog '+(id===redId?'red':'green');
+    leafEls[id].appendChild(el);
+  });
+  selected=null;
+}
+
 function flash(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2000);}
 function checkWin(){if(occupied.size===1&&occupied.has(redId))flash('Ratkaistu!');}
 function getNodeIdFromEvent(t){const l=t.closest('.leaf');return l?Number(l.dataset.id):null;}
-function tryJump(from,to){const mid=midpointId(from,to);
+
+function tryJump(from,to){
+  const mid=midpointId(from,to);
   if(mid==null||!occupied.has(from)||!occupied.has(mid)||occupied.has(to)||mid===redId)return false;
   if(!(hasEdge(from,mid)&&hasEdge(mid,to)))return false;
-  occupied.delete(mid);occupied.delete(from);occupied.add(to);
-  if(from===redId)redId=to;moves++;movesEl.textContent=String(moves);renderFrogs();checkWin();return true;}
+
+  occupied.delete(mid);
+  occupied.delete(from);
+  occupied.add(to);
+
+  if(from===redId)redId=to;
+
+  moves++;
+  movesEl.textContent=String(moves);
+  renderFrogs();
+  checkWin();
+  return true;
+}
+
 lake.addEventListener('pointerdown',ev=>{
   if(inputLocked) return;
-  const id=getNodeIdFromEvent(ev.target);if(id==null)return;
-  if(selected==null){if(occupied.has(id)){selected=id;leafEls[id].querySelector('.frog').classList.add('selected');}return;}
-  if(id===selected){leafEls[selected].querySelector('.frog').classList.remove('selected');selected=null;return;}
-  if(tryJump(selected,id)){}else{
-    if(occupied.has(id)){leafEls[selected].querySelector('.frog').classList.remove('selected');
-      selected=id;leafEls[selected].querySelector('.frog').classList.add('selected');}
-    else{flash('Ei sallittu hyppy');leafEls[selected].querySelector('.frog').classList.remove('selected');selected=null;}}});
+  const id=getNodeIdFromEvent(ev.target);
+  if(id==null) return;
+
+  // 1) ei vielä valintaa -> valitse sammakko (kehys lehdelle)
+  if(selected==null){
+    if(occupied.has(id)){
+      selected=id;
+      setLeafSelected(selected, true);
+    }
+    return;
+  }
+
+  // 2) klikataan samaa -> poista valinta
+  if(id===selected){
+    setLeafSelected(selected, false);
+    selected=null;
+    return;
+  }
+
+  // 3) yritä hyppyä
+  const from = selected;
+  setLeafSelected(from, false); // poistetaan kehys ennen yritystä (renderFrogs myös siivoaa)
+
+  if(tryJump(from, id)){
+    // hyppy onnistui -> renderFrogs siivosi kaiken, selected jo null
+    selected=null;
+    return;
+  }
+
+  // 4) hyppy ei onnistunut: jos klikattiin toista sammakkoa -> vaihda valinta
+  if(occupied.has(id)){
+    selected=id;
+    setLeafSelected(selected, true);
+    return;
+  }
+
+  // 5) klikattiin tyhjää -> poista valinta ja ilmoita
+  flash('Ei sallittu hyppy');
+  selected=null;
+});
 
 /* ========= RATKAISIJA (minimipolku) ========= */
 const moveCache=new Map();
@@ -381,32 +490,46 @@ function generateForLevel(level,onDone){
 
 /* ========= RATKAISUN TOISTO ========= */
 let playingTimer=null;
+
 function playSolution(path){
   if(!path || !path.length){ flash('Ratkaisua ei löytynyt'); return; }
+
+  // varmuus: ei jää käsinvalintaa / ringiä näkyviin
+  clearAllLeafSelections();
+  selected=null;
+
   setInputLocked(true);
+
   let i=0;
+
   const step=()=>{
-    if(i>=path.length){ setInputLocked(false); flash('Ratkaisu valmis'); return; }
-const {from, to} = path[i];
-const fromLeaf = leafEls[from];
-const frogEl = fromLeaf?.querySelector('.frog');
+    if(i>=path.length){
+      setInputLocked(false);
+      flash('Ratkaisu valmis');
+      return;
+    }
 
-// Näytä hetkeksi olemassa oleva valintakehys
-if (frogEl) frogEl.classList.add('selected');
+    const {from, to} = path[i];
 
-// 0.2 s viive ennen hyppyä (näyttää ensin valinnan)
-setTimeout(() => {
-  tryJump(from, to);
+    // korosta siirtyvä (lehtikehys)
+    setLeafSelected(from, true);
 
-  // poista kehys siirron jälkeen
-  if (frogEl) frogEl.classList.remove('selected');
+    // pieni "valintahetki" ennen hyppyä
+    setTimeout(() => {
+      tryJump(from, to);
 
-  i++;
-  const delay = (i === 0) ? 22000 : 1000;
-  playingTimer = setTimeout(step, delay);
-}, 400);
+      // poistetaan korostus (renderFrogs myös siivoaa, mutta tämä varmistaa)
+      setLeafSelected(from, false);
 
+      // seuraavan siirron viive:
+      // 1.5 s ensimmäisen siirron jälkeen, myöhemmin 1.0 s
+      const delay = (i === 0) ? 2500 : 1500;
+
+      i++;
+      playingTimer = setTimeout(step, delay);
+    }, 650);
   };
+
   step();
 }
 
@@ -427,11 +550,15 @@ newBtn.addEventListener('click',()=>{
     newBtn.disabled=false;newBtn.textContent=old;
   });
 });
+
 resetBtn.addEventListener('click',()=>{
   if(playingTimer){ clearTimeout(playingTimer); playingTimer=null; }
   setInputLocked(false);
+  clearAllLeafSelections();
+  selected=null;
   if(lastPuzzle) setState(lastPuzzle);
 });
+
 solveBtn.addEventListener('click',()=>{
   if(inputLocked) return;
   const path = solveCurrent();
